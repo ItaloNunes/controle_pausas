@@ -18,11 +18,9 @@ else:
 # ===================== CRUD DE FUNCIONÁRIOS =====================
 st.sidebar.title("📋 Cadastro de Funcionários")
 
-# Mostrar tabela atual
 st.sidebar.markdown("### 👀 Funcionários cadastrados")
 st.sidebar.dataframe(funcionarios_df)
 
-# Seleção para edição
 nomes = funcionarios_df["nome"].tolist()
 editar_nome = st.sidebar.selectbox("Editar/Excluir funcionário:", [""] + nomes)
 
@@ -48,7 +46,6 @@ if editar_nome:
             funcionarios_df.to_csv(funcionarios_path, index=False)
             st.sidebar.success(f"Funcionário '{editar_nome}' excluído com sucesso!")
 
-# Cadastro novo
 st.sidebar.markdown("---")
 st.sidebar.markdown("### ➕ Cadastrar novo funcionário")
 
@@ -78,7 +75,6 @@ with st.sidebar.form("novo_funcionario"):
 # ===================== CONTROLE DE PAUSAS =====================
 st.title("🕒 Controle de Pausas")
 
-# Garantir pausas.csv
 if "df" not in st.session_state:
     try:
         df = pd.read_csv(df_path, parse_dates=["inicio", "fim"])
@@ -86,7 +82,6 @@ if "df" not in st.session_state:
         df = pd.DataFrame(columns=["funcionario", "inicio", "fim", "duracao"])
     st.session_state.df = df
 
-# Selecionar funcionário
 if len(funcionarios_df) == 0:
     st.warning("⚠️ Nenhum funcionário cadastrado. Cadastre primeiro no menu lateral.")
 else:
@@ -126,14 +121,7 @@ else:
     nomes_filtro = ["Todos"] + funcionarios_df["nome"].tolist()
     usuario_filtro = st.selectbox("Funcionário para filtrar:", nomes_filtro)
 
-    csv_buffer = io.StringIO()
-df_filtro.to_csv(csv_buffer, index=False)
-st.download_button(
-    label="📥 Baixar CSV",
-    data=csv_buffer.getvalue(),
-    file_name="pausas.csv",
-    mime="text/csv"
-)
+    df_filtro = st.session_state.df.copy()
     df_filtro["data"] = pd.to_datetime(df_filtro["inicio"]).dt.date
     df_filtro = df_filtro[df_filtro["data"] == data_filtro]
     if usuario_filtro != "Todos":
@@ -141,16 +129,14 @@ st.download_button(
 
     st.dataframe(df_filtro)
 
-    # Exportar Excel
-    excel_buffer = io.BytesIO()
-    df_filtro.to_excel(excel_buffer, index=False, engine="openpyxl")
-    excel_buffer.seek(0)
-
+    # Exportar CSV (funciona em qualquer ambiente)
+    csv_buffer = io.StringIO()
+    df_filtro.to_csv(csv_buffer, index=False)
     st.download_button(
-        label="📥 Baixar Excel",
-        data=excel_buffer,
-        file_name="pausas.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        label="📥 Baixar CSV",
+        data=csv_buffer.getvalue(),
+        file_name="pausas.csv",
+        mime="text/csv"
     )
 
     # Resumo por funcionário
