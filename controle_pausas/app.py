@@ -126,7 +126,7 @@ else:
     nomes_filtro = ["Todos"] + funcionarios_df["nome"].tolist()
     usuario_filtro = st.selectbox("Funcionário para filtrar:", nomes_filtro)
 
-    df_filtro = st.session_state.df.copy()
+    df_filtro.to_excel(excel_buffer, index=False)
     df_filtro["data"] = pd.to_datetime(df_filtro["inicio"]).dt.date
     df_filtro = df_filtro[df_filtro["data"] == data_filtro]
     if usuario_filtro != "Todos":
