@@ -126,7 +126,14 @@ else:
     nomes_filtro = ["Todos"] + funcionarios_df["nome"].tolist()
     usuario_filtro = st.selectbox("Funcionário para filtrar:", nomes_filtro)
 
-    df_filtro.to_excel(excel_buffer, index=False)
+    csv_buffer = io.StringIO()
+df_filtro.to_csv(csv_buffer, index=False)
+st.download_button(
+    label="📥 Baixar CSV",
+    data=csv_buffer.getvalue(),
+    file_name="pausas.csv",
+    mime="text/csv"
+)
     df_filtro["data"] = pd.to_datetime(df_filtro["inicio"]).dt.date
     df_filtro = df_filtro[df_filtro["data"] == data_filtro]
     if usuario_filtro != "Todos":
