@@ -74,7 +74,14 @@ with st.sidebar.form("novo_funcionario"):
 
 # ===================== CONTROLE DE PAUSAS =====================
 st.title("🕒 Controle de Pausas")
-
+st.markdown(
+    """
+    <div style='text-align: center; margin-top: -25px; margin-bottom: 25px;'>
+        <img src='https://drive.google.com/uc?id=1Thozg7uQOz_DZGxplg3zMgTvRmGBrJaW' width='150'/>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 if "df" not in st.session_state:
     try:
         df = pd.read_csv(df_path, parse_dates=["inicio", "fim"])
