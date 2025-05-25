@@ -73,18 +73,16 @@ with st.sidebar.form("novo_funcionario"):
             st.sidebar.warning("O campo nome é obrigatório.")
 
 # ===================== TÍTULO E LOGO =====================
-st.title("🕒 Controle de Pausas")
-
-# LOGO CENTRALIZADA NO TOPO
+# LOGO CENTRALIZADA NO TOPO (FUNCIONANDO)
 st.markdown(
     """
     <div style='text-align: center; margin-top: -25px; margin-bottom: 25px;'>
-        <img src='https://i.imgur.com/g6QeUmY.png' width='180'/>
+        <img src='https://i.imgur.com/RCEQ86a.png' width='180'/>
     </div>
     """,
     unsafe_allow_html=True
 )
-
+st.title("🕒 Controle de Pausas")
 
 # ===================== CONTROLE DE PAUSAS =====================
 if "df" not in st.session_state:
