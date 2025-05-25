@@ -148,11 +148,23 @@ else:
     ).round(2).reset_index()
     st.dataframe(resumo)
 # ===================== RODAPÉ =====================
+# ===================== ASSINATURA CENTRAL =====================
 st.markdown(
     """
-    <div style='position: fixed; bottom: 10px; width: 100%; text-align: center; color: gray; font-size: 14px;'>
-        Developer by <strong>INV</strong>
-    </div>
+    <style>
+        .centered-text {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 22px;
+            font-weight: bold;
+            color: gray;
+            opacity: 0.2;
+            z-index: 0;
+        }
+    </style>
+    <div class='centered-text'>Developer by INV</div>
     """,
     unsafe_allow_html=True
 )
