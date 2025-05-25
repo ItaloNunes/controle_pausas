@@ -72,8 +72,10 @@ with st.sidebar.form("novo_funcionario"):
         else:
             st.sidebar.warning("O campo nome é obrigatório.")
 
-# ===================== CONTROLE DE PAUSAS =====================
+# ===================== TÍTULO E LOGO =====================
 st.title("🕒 Controle de Pausas")
+
+# LOGO CENTRALIZADA NO TOPO
 st.markdown(
     """
     <div style='text-align: center; margin-top: -25px; margin-bottom: 25px;'>
@@ -82,6 +84,8 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+# ===================== CONTROLE DE PAUSAS =====================
 if "df" not in st.session_state:
     try:
         df = pd.read_csv(df_path, parse_dates=["inicio", "fim"])
@@ -136,9 +140,9 @@ else:
 
     st.dataframe(df_filtro)
 
-    # Exportar CSV (funciona em qualquer ambiente)
+    # Exportar CSV com separador adequado para Excel PT-BR
     csv_buffer = io.StringIO()
-    df_filtro.to_csv(csv_buffer, index=False)
+    df_filtro.to_csv(csv_buffer, index=False, sep=";", encoding="utf-8-sig")
     st.download_button(
         label="📥 Baixar CSV",
         data=csv_buffer.getvalue(),
@@ -154,9 +158,8 @@ else:
         media_minutos="mean"
     ).round(2).reset_index()
     st.dataframe(resumo)
-# ===================== RODAPÉ =====================
-# ===================== ASSINATURA CENTRAL =====================
-# ===================== RODAPÉ CENTRAL =====================
+
+# ===================== RODAPÉ COM ASSINATURA =====================
 st.markdown(
     """
     <style>
@@ -175,4 +178,3 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
