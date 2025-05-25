@@ -149,22 +149,23 @@ else:
     st.dataframe(resumo)
 # ===================== RODAPÉ =====================
 # ===================== ASSINATURA CENTRAL =====================
+# ===================== RODAPÉ CENTRAL =====================
 st.markdown(
     """
     <style>
-        .centered-text {
+        .footer-text {
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 22px;
-            font-weight: bold;
+            bottom: 15px;
+            width: 100%;
+            text-align: center;
+            font-size: 14px;
             color: gray;
-            opacity: 0.2;
-            z-index: 0;
+            opacity: 0.6;
+            z-index: 100;
         }
     </style>
-    <div class='centered-text'>Developer by INV</div>
+    <div class="footer-text">Developer by <strong>INV</strong></div>
     """,
     unsafe_allow_html=True
 )
+
