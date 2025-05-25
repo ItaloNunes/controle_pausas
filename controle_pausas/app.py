@@ -77,7 +77,7 @@ with st.sidebar.form("novo_funcionario"):
 st.markdown(
     """
     <div style='text-align: center; margin-top: -25px; margin-bottom: 25px;'>
-        <img src='https://i.imgur.com/RCEQ86a.png' width='180'/>
+        <img src='https://github.com/ItaloNunes/controle_pausas/edit/main/controle_pausas/logo%20ABJ.jpg'/>
     </div>
     """,
     unsafe_allow_html=True
