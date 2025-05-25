@@ -147,3 +147,12 @@ else:
         media_minutos="mean"
     ).round(2).reset_index()
     st.dataframe(resumo)
+# ===================== RODAPÉ =====================
+st.markdown(
+    """
+    <div style='position: fixed; bottom: 10px; width: 100%; text-align: center; color: gray; font-size: 14px;'>
+        Developer by <strong>INV</strong>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
