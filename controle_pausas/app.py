@@ -79,11 +79,12 @@ st.title("🕒 Controle de Pausas")
 st.markdown(
     """
     <div style='text-align: center; margin-top: -25px; margin-bottom: 25px;'>
-        <img src='https://drive.google.com/uc?id=1Thozg7uQOz_DZGxplg3zMgTvRmGBrJaW' width='150'/>
+        <img src='https://i.imgur.com/g6QeUmY.png' width='180'/>
     </div>
     """,
     unsafe_allow_html=True
 )
+
 
 # ===================== CONTROLE DE PAUSAS =====================
 if "df" not in st.session_state:
