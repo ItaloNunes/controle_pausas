@@ -18,14 +18,16 @@ if not st.session_state.auth:
     st.title("🔐 Login de Administrador")
     user = st.text_input("Usuário")
     password = st.text_input("Senha", type="password")
-    if st.button("Entrar"):
+    login = st.button("Entrar")
+
+    if login:
         if user == admin_user and password == admin_pass:
             st.session_state.auth = True
-            st.experimental_rerun()
+            st.success("Login realizado com sucesso!")
+            st.stop()
         else:
             st.error("Usuário ou senha inválido.")
     st.stop()
-
 # ===================== ARQUIVOS =====================
 if not os.path.exists(funcionarios_path):
     funcionarios_df = pd.DataFrame(columns=["nome", "matricula", "cargo", "setor"])
