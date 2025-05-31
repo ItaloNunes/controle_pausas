@@ -4,20 +4,37 @@ from datetime import datetime
 import io
 import os
 
-# ===================== ARQUIVOS =====================
+# ===================== CONFIGURAÇÃO =====================
 df_path = "pausas.csv"
 funcionarios_path = "funcionarios.csv"
+admin_user = "admin"
+admin_pass = "1234"
 
-# ===================== CARREGAR FUNCIONÁRIOS =====================
+# ===================== LOGIN SIMPLES =====================
+if "auth" not in st.session_state:
+    st.session_state.auth = False
+
+if not st.session_state.auth:
+    st.title("🔐 Login de Administrador")
+    user = st.text_input("Usuário")
+    password = st.text_input("Senha", type="password")
+    if st.button("Entrar"):
+        if user == admin_user and password == admin_pass:
+            st.session_state.auth = True
+            st.experimental_rerun()
+        else:
+            st.error("Usuário ou senha inválido.")
+    st.stop()
+
+# ===================== ARQUIVOS =====================
 if not os.path.exists(funcionarios_path):
     funcionarios_df = pd.DataFrame(columns=["nome", "matricula", "cargo", "setor"])
     funcionarios_df.to_csv(funcionarios_path, index=False)
 else:
     funcionarios_df = pd.read_csv(funcionarios_path)
 
-# ===================== CRUD DE FUNCIONÁRIOS =====================
+# ===================== CADASTRO FUNCIONÁRIOS =====================
 st.sidebar.title("📋 Cadastro de Funcionários")
-
 st.sidebar.markdown("### 👀 Funcionários cadastrados")
 st.sidebar.dataframe(funcionarios_df)
 
@@ -72,11 +89,10 @@ with st.sidebar.form("novo_funcionario"):
         else:
             st.sidebar.warning("O campo nome é obrigatório.")
 
-# ===================== TÍTULO E LOGO =====================
-# LOGO CENTRALIZADA NO TOPO (FUNCIONANDO)
+# ===================== LOGO E TÍTULO =====================
 st.markdown(
     """
-    <div style='text-align: center; margin-top: -25px; margin-bottom: 25px;'>
+    <div style='text-align: center; margin-top: -25px; margin-bottom: 15px;'>
         <img src='https://raw.githubusercontent.com/ItaloNunes/controle_pausas/main/controle_pausas/logo%20ABJ.jpg' width='180'/>
     </div>
     """,
@@ -124,9 +140,8 @@ else:
             else:
                 st.warning("Você precisa iniciar a pausa primeiro.")
 
-    # ===================== FILTROS E RELATÓRIOS =====================
+    # ===================== FILTRO E EXPORTAÇÃO =====================
     st.subheader("🔎 Filtrar pausas")
-
     data_filtro = st.date_input("Data:", datetime.now().date())
     nomes_filtro = ["Todos"] + funcionarios_df["nome"].tolist()
     usuario_filtro = st.selectbox("Funcionário para filtrar:", nomes_filtro)
@@ -139,7 +154,7 @@ else:
 
     st.dataframe(df_filtro)
 
-    # Exportar CSV com separador adequado para Excel PT-BR
+    # Exportar CSV com separador compatível com Excel
     csv_buffer = io.StringIO()
     df_filtro.to_csv(csv_buffer, index=False, sep=";", encoding="utf-8-sig")
     st.download_button(
@@ -149,7 +164,7 @@ else:
         mime="text/csv"
     )
 
-    # Resumo por funcionário
+    # ===================== RESUMO =====================
     st.subheader("📊 Resumo por funcionário")
     resumo = st.session_state.df.groupby("funcionario")["duracao"].agg(
         total_pausas="count",
@@ -158,7 +173,7 @@ else:
     ).round(2).reset_index()
     st.dataframe(resumo)
 
-# ===================== RODAPÉ COM ASSINATURA =====================
+# ===================== RODAPÉ =====================
 st.markdown(
     """
     <style>
