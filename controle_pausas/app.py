@@ -2,21 +2,73 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import io
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import json
 import os
 
-# =============== CONFIG ===================
+# =============== CONFIGURAÇÃO ===================
 st.set_page_config(page_title="Controle de Pausas", layout="wide")
 
-df_path = "pausas.csv"
-funcionarios_path = "funcionarios.csv"
+# Autenticando com Google Sheets via secret
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+credentials_dict = json.loads(st.secrets["GOOGLE_SERVICE_ACCOUNT"])
+credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
+client = gspread.authorize(credentials)
 
+# Nome das planilhas
+SHEET_FUNCIONARIOS = "controle_pausas"
+ABA_FUNCIONARIOS = "funcionarios"
+ABA_PAUSAS = "pausas"
+
+# Criando as abas se não existirem
+try:
+    sheet = client.open(SHEET_FUNCIONARIOS)
+except gspread.SpreadsheetNotFound:
+    sheet = client.create(SHEET_FUNCIONARIOS)
+    sheet.share(credentials_dict["client_email"], perm_type="user", role="writer")
+    sheet.add_worksheet(title=ABA_FUNCIONARIOS, rows="1000", cols="20")
+    sheet.add_worksheet(title=ABA_PAUSAS, rows="1000", cols="20")
+    sheet.del_worksheet(sheet.worksheet("Sheet1"))
+
+# ================== FUNÇÕES AUXILIARES =====================
+
+def carregar_funcionarios():
+    try:
+        dados = sheet.worksheet(ABA_FUNCIONARIOS).get_all_records()
+        return pd.DataFrame(dados)
+    except Exception:
+        return pd.DataFrame(columns=["nome", "matricula", "cargo", "setor"])
+
+def salvar_funcionarios(df):
+    aba = sheet.worksheet(ABA_FUNCIONARIOS)
+    aba.clear()
+    aba.update([df.columns.values.tolist()] + df.values.tolist())
+
+def carregar_pausas():
+    try:
+        dados = sheet.worksheet(ABA_PAUSAS).get_all_records()
+        df = pd.DataFrame(dados)
+        df["inicio"] = pd.to_datetime(df["inicio"])
+        df["fim"] = pd.to_datetime(df["fim"])
+        return df
+    except Exception:
+        return pd.DataFrame(columns=["funcionario", "inicio", "fim", "duracao"])
+
+def salvar_pausas(df):
+    aba = sheet.worksheet(ABA_PAUSAS)
+    aba.clear()
+    df["inicio"] = df["inicio"].astype(str)
+    df["fim"] = df["fim"].astype(str)
+    aba.update([df.columns.values.tolist()] + df.values.tolist())
+
+# =============== LOGIN ===================
 usuarios = {
     "admin": {"senha": "1234", "tipo": "admin"},
     "operador1": {"senha": "op123", "tipo": "operador"},
     "operador2": {"senha": "op456", "tipo": "operador"}
 }
 
-# =============== LOGIN ===================
 if "usuario_logado" not in st.session_state:
     st.session_state.usuario_logado = None
 
@@ -47,14 +99,12 @@ st.markdown(
 
 st.title("🕒 Controle de Pausas")
 
-# =============== CARREGAR FUNCIONÁRIOS ===================
-if not os.path.exists(funcionarios_path):
-    funcionarios_df = pd.DataFrame(columns=["nome", "matricula", "cargo", "setor"])
-    funcionarios_df.to_csv(funcionarios_path, index=False)
-else:
-    funcionarios_df = pd.read_csv(funcionarios_path)
+# =================== CARREGAR DADOS =======================
+funcionarios_df = carregar_funcionarios()
+if "df" not in st.session_state:
+    st.session_state.df = carregar_pausas()
 
-# =============== CRUD FUNCIONÁRIOS (SOMENTE ADMIN) ===================
+# =============== CRUD FUNCIONÁRIOS (ADMIN) ===================
 if tipo_usuario == "admin":
     st.sidebar.title("📋 Cadastro de Funcionários")
     st.sidebar.markdown("### 👀 Funcionários cadastrados")
@@ -66,31 +116,31 @@ if tipo_usuario == "admin":
     if editar_nome:
         funcionario = funcionarios_df[funcionarios_df["nome"] == editar_nome].iloc[0]
         with st.sidebar.form("editar_form"):
-            nome_novo = st.text_input("Nome", funcionario["nome"], key="nome_edit")
-            matricula_novo = st.text_input("Matrícula", funcionario["matricula"], key="matricula_edit")
-            cargo_novo = st.text_input("Cargo", funcionario["cargo"], key="cargo_edit")
-            setor_novo = st.text_input("Setor", funcionario["setor"], key="setor_edit")
+            nome_novo = st.text_input("Nome", funcionario["nome"])
+            matricula_novo = st.text_input("Matrícula", funcionario["matricula"])
+            cargo_novo = st.text_input("Cargo", funcionario["cargo"])
+            setor_novo = st.text_input("Setor", funcionario["setor"])
             atualizar = st.form_submit_button("💾 Atualizar")
             deletar = st.form_submit_button("🗑️ Excluir")
 
             if atualizar:
                 index = funcionarios_df[funcionarios_df["nome"] == editar_nome].index[0]
                 funcionarios_df.loc[index] = [nome_novo, matricula_novo, cargo_novo, setor_novo]
-                funcionarios_df.to_csv(funcionarios_path, index=False)
-                st.sidebar.success(f"Funcionário '{editar_nome}' atualizado com sucesso!")
+                salvar_funcionarios(funcionarios_df)
+                st.sidebar.success(f"Funcionário '{editar_nome}' atualizado!")
 
             if deletar:
                 funcionarios_df = funcionarios_df[funcionarios_df["nome"] != editar_nome]
-                funcionarios_df.to_csv(funcionarios_path, index=False)
-                st.sidebar.success(f"Funcionário '{editar_nome}' excluído com sucesso!")
+                salvar_funcionarios(funcionarios_df)
+                st.sidebar.success(f"Funcionário '{editar_nome}' excluído!")
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("### ➕ Cadastrar novo funcionário")
     with st.sidebar.form("novo_funcionario"):
-        novo_nome = st.text_input("Nome", key="nome_novo")
-        novo_matricula = st.text_input("Matrícula", key="matricula_novo")
-        novo_cargo = st.text_input("Cargo", key="cargo_novo")
-        novo_setor = st.text_input("Setor", key="setor_novo")
+        novo_nome = st.text_input("Nome")
+        novo_matricula = st.text_input("Matrícula")
+        novo_cargo = st.text_input("Cargo")
+        novo_setor = st.text_input("Setor")
         cadastrar = st.form_submit_button("✅ Cadastrar")
 
         if cadastrar:
@@ -102,23 +152,16 @@ if tipo_usuario == "admin":
                     "setor": novo_setor
                 }])
                 funcionarios_df = pd.concat([funcionarios_df, novo_func], ignore_index=True)
-                funcionarios_df.to_csv(funcionarios_path, index=False)
-                st.sidebar.success(f"Funcionário '{novo_nome}' cadastrado com sucesso!")
+                salvar_funcionarios(funcionarios_df)
+                st.sidebar.success(f"Funcionário '{novo_nome}' cadastrado!")
             elif novo_nome in funcionarios_df["nome"].values:
-                st.sidebar.warning("Funcionário já está cadastrado.")
+                st.sidebar.warning("Funcionário já cadastrado.")
             else:
                 st.sidebar.warning("O campo nome é obrigatório.")
 
-# =============== CONTROLE DE PAUSAS ===================
-if "df" not in st.session_state:
-    try:
-        df = pd.read_csv(df_path, parse_dates=["inicio", "fim"])
-    except FileNotFoundError:
-        df = pd.DataFrame(columns=["funcionario", "inicio", "fim", "duracao"])
-    st.session_state.df = df
-
+# =============== REGISTRAR PAUSAS ===================
 if len(funcionarios_df) == 0:
-    st.warning("⚠️ Nenhum funcionário cadastrado. Cadastre primeiro no menu lateral.")
+    st.warning("⚠️ Nenhum funcionário cadastrado.")
 else:
     nome = st.selectbox("Selecione o funcionário:", funcionarios_df["nome"].tolist())
 
@@ -143,15 +186,14 @@ else:
                     "duracao": duracao
                 }])
                 st.session_state.df = pd.concat([st.session_state.df, nova], ignore_index=True)
+                salvar_pausas(st.session_state.df)
                 st.session_state["pausa_inicio"] = None
                 st.success(f"Pausa finalizada: {duracao} minutos")
-                st.session_state.df.to_csv(df_path, index=False)
             else:
                 st.warning("Você precisa iniciar a pausa primeiro.")
 
-# =============== FILTROS E RELATÓRIOS ===================
+# =============== RELATÓRIO E DOWNLOAD ===================
 st.subheader("🔎 Filtrar pausas")
-
 data_filtro = st.date_input("Data:", datetime.now().date())
 nomes_filtro = ["Todos"] + funcionarios_df["nome"].tolist()
 usuario_filtro = st.selectbox("Funcionário para filtrar:", nomes_filtro)
@@ -164,7 +206,6 @@ if usuario_filtro != "Todos":
 
 st.dataframe(df_filtro)
 
-# Exportar CSV
 csv_buffer = io.StringIO()
 df_filtro.to_csv(csv_buffer, index=False, sep=";", encoding="utf-8-sig")
 st.download_button(
@@ -174,7 +215,6 @@ st.download_button(
     mime="text/csv"
 )
 
-# Resumo
 st.subheader("📊 Resumo por funcionário")
 resumo = st.session_state.df.groupby("funcionario")["duracao"].agg(
     total_pausas="count",
