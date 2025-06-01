@@ -4,7 +4,7 @@ from datetime import datetime
 import io
 import os
 
-# =============== CONFIG ===================
+# =============== CONFIGURAÇÕES ===================
 st.set_page_config(page_title="Controle de Pausas", layout="wide")
 
 df_path = "pausas.csv"
@@ -21,21 +21,21 @@ if "usuario_logado" not in st.session_state:
     st.session_state.usuario_logado = None
 
 if st.session_state.usuario_logado is None:
-    st.title("🔐 Login de Administrador")
+    st.title("🔐 Login do Sistema")
     user = st.text_input("Usuário")
     password = st.text_input("Senha", type="password")
     if st.button("Entrar"):
         if user in usuarios and usuarios[user]["senha"] == password:
             st.session_state.usuario_logado = user
             st.success(f"Bem-vindo, {user}!")
-            st.rerun()
+            st.experimental_rerun()
         else:
-            st.error("Usuário ou senha inválido.")
+            st.error("Usuário ou senha inválidos.")
     st.stop()
 
 tipo_usuario = usuarios[st.session_state.usuario_logado]["tipo"]
 
-# =============== LOGO ===================
+# =============== LOGO CENTRALIZADA ===================
 st.markdown(
     """
     <div style='text-align: center; margin-top: -25px; margin-bottom: 10px;'>
@@ -44,7 +44,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 st.title("🕒 Controle de Pausas")
 
 # =============== CARREGAR FUNCIONÁRIOS ===================
@@ -54,7 +53,7 @@ if not os.path.exists(funcionarios_path):
 else:
     funcionarios_df = pd.read_csv(funcionarios_path)
 
-# =============== CRUD FUNCIONÁRIOS (SOMENTE ADMIN) ===================
+# =============== CRUD FUNCIONÁRIOS (ADMIN) ===================
 if tipo_usuario == "admin":
     st.sidebar.title("📋 Cadastro de Funcionários")
 
@@ -79,15 +78,15 @@ if tipo_usuario == "admin":
                 index = funcionarios_df[funcionarios_df["nome"] == editar_nome].index[0]
                 funcionarios_df.loc[index] = [nome_novo, matricula_novo, cargo_novo, setor_novo]
                 funcionarios_df.to_csv(funcionarios_path, index=False)
-                st.sidebar.success(f"Funcionário '{editar_nome}' atualizado com sucesso!")
+                st.experimental_rerun()
 
             if deletar:
                 funcionarios_df = funcionarios_df[funcionarios_df["nome"] != editar_nome]
                 funcionarios_df.to_csv(funcionarios_path, index=False)
-                st.sidebar.success(f"Funcionário '{editar_nome}' excluído com sucesso!")
+                st.experimental_rerun()
 
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### ➕ Cadastrar novo funcionário")
+    st.sidebar.markdown("### ➕ Novo Funcionário")
 
     with st.sidebar.form("novo_funcionario"):
         novo_nome = st.text_input("Nome", key="nome_novo")
@@ -106,11 +105,11 @@ if tipo_usuario == "admin":
                 }])
                 funcionarios_df = pd.concat([funcionarios_df, novo_func], ignore_index=True)
                 funcionarios_df.to_csv(funcionarios_path, index=False)
-                st.sidebar.success(f"Funcionário '{novo_nome}' cadastrado com sucesso!")
+                st.experimental_rerun()
             elif novo_nome in funcionarios_df["nome"].values:
-                st.sidebar.warning("Funcionário já está cadastrado.")
+                st.sidebar.warning("Funcionário já cadastrado.")
             else:
-                st.sidebar.warning("O campo nome é obrigatório.")
+                st.sidebar.warning("O nome é obrigatório.")
 
 # =============== CONTROLE DE PAUSAS ===================
 if "df" not in st.session_state:
@@ -121,9 +120,9 @@ if "df" not in st.session_state:
     st.session_state.df = df
 
 if len(funcionarios_df) == 0:
-    st.warning("⚠️ Nenhum funcionário cadastrado. Cadastre primeiro no menu lateral.")
+    st.warning("⚠️ Nenhum funcionário cadastrado.")
 else:
-    nome = st.selectbox("Selecione o funcionário:", funcionarios_df["nome"].tolist())
+    nome = st.selectbox("Funcionário:", funcionarios_df["nome"].tolist())
 
     col1, col2 = st.columns(2)
     with col1:
@@ -146,18 +145,18 @@ else:
                     "duracao": duracao
                 }])
                 st.session_state.df = pd.concat([st.session_state.df, nova], ignore_index=True)
+                st.session_state.df.to_csv(df_path, index=False)
                 st.session_state["pausa_inicio"] = None
                 st.success(f"Pausa finalizada: {duracao} minutos")
-                st.session_state.df.to_csv(df_path, index=False)
             else:
-                st.warning("Você precisa iniciar a pausa primeiro.")
+                st.warning("Você precisa iniciar a pausa antes.")
 
-# =============== FILTROS E RELATÓRIOS ===================
-st.subheader("🔎 Filtrar pausas")
+# =============== FILTRAR E EXPORTAR ===================
+st.subheader("🔎 Filtrar Pausas")
 
 data_filtro = st.date_input("Data:", datetime.now().date())
 nomes_filtro = ["Todos"] + funcionarios_df["nome"].tolist()
-usuario_filtro = st.selectbox("Funcionário para filtrar:", nomes_filtro)
+usuario_filtro = st.selectbox("Filtrar por funcionário:", nomes_filtro)
 
 df_filtro = st.session_state.df.copy()
 df_filtro["data"] = pd.to_datetime(df_filtro["inicio"]).dt.date
@@ -167,18 +166,12 @@ if usuario_filtro != "Todos":
 
 st.dataframe(df_filtro)
 
-# Exportar CSV
 csv_buffer = io.StringIO()
 df_filtro.to_csv(csv_buffer, index=False, sep=";", encoding="utf-8-sig")
-st.download_button(
-    label="📥 Baixar CSV",
-    data=csv_buffer.getvalue(),
-    file_name="pausas.csv",
-    mime="text/csv"
-)
+st.download_button("📥 Baixar CSV", csv_buffer.getvalue(), "pausas.csv", "text/csv")
 
-# Resumo
-st.subheader("📊 Resumo por funcionário")
+# =============== RESUMO ===================
+st.subheader("📊 Resumo por Funcionário")
 resumo = st.session_state.df.groupby("funcionario")["duracao"].agg(
     total_pausas="count",
     total_minutos="sum",
@@ -198,7 +191,6 @@ st.markdown(
             font-size: 14px;
             color: gray;
             opacity: 0.6;
-            z-index: 100;
         }
     </style>
     <div class="footer-text">Developer by <strong>INV</strong></div>
