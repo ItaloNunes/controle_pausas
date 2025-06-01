@@ -10,29 +10,31 @@ import os
 # =============== CONFIGURAÇÃO ===================
 st.set_page_config(page_title="Controle de Pausas", layout="wide")
 
-# Autenticando com Google Sheets via secret
+# Autenticando com Google Sheets via secrets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 credentials_dict = json.loads(st.secrets["GOOGLE_SERVICE_ACCOUNT"])
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
 client = gspread.authorize(credentials)
 
-# Nome das planilhas
-SHEET_FUNCIONARIOS = "controle_pausas"
+SHEET_NAME = "controle_pausas"
 ABA_FUNCIONARIOS = "funcionarios"
 ABA_PAUSAS = "pausas"
 
-# Criando as abas se não existirem
+# =============== PLANILHA ===================
 try:
-    sheet = client.open(SHEET_FUNCIONARIOS)
+    sheet = client.open(SHEET_NAME)
 except gspread.SpreadsheetNotFound:
-    sheet = client.create(SHEET_FUNCIONARIOS)
+    sheet = client.create(SHEET_NAME)
     sheet.share(credentials_dict["client_email"], perm_type="user", role="writer")
     sheet.add_worksheet(title=ABA_FUNCIONARIOS, rows="1000", cols="20")
     sheet.add_worksheet(title=ABA_PAUSAS, rows="1000", cols="20")
     sheet.del_worksheet(sheet.worksheet("Sheet1"))
 
-# ================== FUNÇÕES AUXILIARES =====================
+    # Cabeçalhos iniciais
+    sheet.worksheet(ABA_FUNCIONARIOS).update([["nome", "matricula", "cargo", "setor"]])
+    sheet.worksheet(ABA_PAUSAS).update([["funcionario", "inicio", "fim", "duracao"]])
 
+# =============== FUNÇÕES ===================
 def carregar_funcionarios():
     try:
         dados = sheet.worksheet(ABA_FUNCIONARIOS).get_all_records()
@@ -80,7 +82,7 @@ if st.session_state.usuario_logado is None:
         if user in usuarios and usuarios[user]["senha"] == password:
             st.session_state.usuario_logado = user
             st.success(f"Bem-vindo, {user}!")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Usuário ou senha inválido.")
     st.stop()
@@ -99,7 +101,7 @@ st.markdown(
 
 st.title("🕒 Controle de Pausas")
 
-# =================== CARREGAR DADOS =======================
+# =============== CARREGAMENTO INICIAL ===================
 funcionarios_df = carregar_funcionarios()
 if "df" not in st.session_state:
     st.session_state.df = carregar_pausas()
@@ -159,7 +161,7 @@ if tipo_usuario == "admin":
             else:
                 st.sidebar.warning("O campo nome é obrigatório.")
 
-# =============== REGISTRAR PAUSAS ===================
+# =============== REGISTRO DE PAUSAS ===================
 if len(funcionarios_df) == 0:
     st.warning("⚠️ Nenhum funcionário cadastrado.")
 else:
@@ -192,7 +194,7 @@ else:
             else:
                 st.warning("Você precisa iniciar a pausa primeiro.")
 
-# =============== RELATÓRIO E DOWNLOAD ===================
+# =============== RELATÓRIO E FILTRO ===================
 st.subheader("🔎 Filtrar pausas")
 data_filtro = st.date_input("Data:", datetime.now().date())
 nomes_filtro = ["Todos"] + funcionarios_df["nome"].tolist()
@@ -208,24 +210,17 @@ st.dataframe(df_filtro)
 
 csv_buffer = io.StringIO()
 df_filtro.to_csv(csv_buffer, index=False, sep=";", encoding="utf-8-sig")
-st.download_button(
-    label="📥 Baixar CSV",
-    data=csv_buffer.getvalue(),
-    file_name="pausas.csv",
-    mime="text/csv"
-)
+st.download_button("📥 Baixar CSV", csv_buffer.getvalue(), file_name="pausas.csv", mime="text/csv")
 
+# =============== RESUMO ===================
 st.subheader("📊 Resumo por funcionário")
 resumo = st.session_state.df.groupby("funcionario")["duracao"].agg(
-    total_pausas="count",
-    total_minutos="sum",
-    media_minutos="mean"
+    total_pausas="count", total_minutos="sum", media_minutos="mean"
 ).round(2).reset_index()
 st.dataframe(resumo)
 
 # =============== RODAPÉ ===================
-st.markdown(
-    """
+st.markdown("""
     <style>
         .footer-text {
             position: fixed;
@@ -239,6 +234,4 @@ st.markdown(
         }
     </style>
     <div class="footer-text">Developer by <strong>INV</strong></div>
-    """,
-    unsafe_allow_html=True
-)
+""", unsafe_allow_html=True)
