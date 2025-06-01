@@ -17,6 +17,7 @@ usuarios = {
 }
 
 # =============== LOGIN ===================
+# =============== LOGIN ===================
 if "usuario_logado" not in st.session_state:
     st.session_state.usuario_logado = None
 
@@ -24,18 +25,16 @@ if st.session_state.usuario_logado is None:
     st.title("🔐 Login do Sistema")
     user = st.text_input("Usuário")
     password = st.text_input("Senha", type="password")
+    
     if st.button("Entrar"):
-        if st.button("Entrar"):
-    if user in usuarios and usuarios[user]["senha"] == password:
-        st.session_state.usuario_logado = user
-        st.success(f"Bem-vindo, {user}!")
-        st.rerun()  # ✅ correto para versão nova
+        if user in usuarios and usuarios[user]["senha"] == password:
+            st.session_state.usuario_logado = user
+            st.success(f"Bem-vindo, {user}!")
+            st.rerun()  # ou use st.experimental_rerun() dependendo da versão
         else:
-            st.error("Usuário ou senha inválidos.")
+            st.error("Usuário ou senha inválido.")
+    
     st.stop()
-
-tipo_usuario = usuarios[st.session_state.usuario_logado]["tipo"]
-
 # =============== LOGO CENTRALIZADA ===================
 st.markdown(
     """
