@@ -25,10 +25,11 @@ if st.session_state.usuario_logado is None:
     user = st.text_input("Usuário")
     password = st.text_input("Senha", type="password")
     if st.button("Entrar"):
-        if user in usuarios and usuarios[user]["senha"] == password:
-            st.session_state.usuario_logado = user
-            st.success(f"Bem-vindo, {user}!")
-            st.experimental_rerun()
+        if st.button("Entrar"):
+    if user in usuarios and usuarios[user]["senha"] == password:
+        st.session_state.usuario_logado = user
+        st.success(f"Bem-vindo, {user}!")
+        st.rerun()  # ✅ correto para versão nova
         else:
             st.error("Usuário ou senha inválidos.")
     st.stop()
