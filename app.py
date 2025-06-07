@@ -12,7 +12,7 @@ st.set_page_config(page_title="Controle de Pausas", layout="wide")
 # Autenticando com Google Sheets via secrets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 credentials_dict = json.loads(st.secrets["GOOGLE_SERVICE_ACCOUNT"])
-credentials = Credentials.from_service_account_info(credentials_dict, scopes=scope)
+credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
 client = gspread.authorize(credentials)
 
 SHEET_NAME = "controle_pausas"
@@ -22,16 +22,18 @@ ABA_PAUSAS = "pausas"
 # =============== PLANILHA ===================
 try:
     sheet = client.open(SHEET_NAME)
+    st.info("✅ Planilha encontrada com sucesso.")
 except gspread.SpreadsheetNotFound:
+    st.warning("📄 Planilha não encontrada. Criando nova planilha...")
     sheet = client.create(SHEET_NAME)
     sheet.share(credentials_dict["client_email"], perm_type="user", role="writer")
+    sheet.share("italooonunes@gmail.com", perm_type="user", role="writer")  # <-- SUBSTITUA AQUI
     sheet.add_worksheet(title=ABA_FUNCIONARIOS, rows="1000", cols="20")
     sheet.add_worksheet(title=ABA_PAUSAS, rows="1000", cols="20")
     sheet.del_worksheet(sheet.worksheet("Sheet1"))
-
-    # Cabeçalhos iniciais
     sheet.worksheet(ABA_FUNCIONARIOS).update([["nome", "matricula", "cargo", "setor"]])
     sheet.worksheet(ABA_PAUSAS).update([["funcionario", "inicio", "fim", "duracao"]])
+    st.success("✅ Planilha criada e compartilhada.")
 
 # =============== FUNÇÕES ===================
 def carregar_funcionarios():
