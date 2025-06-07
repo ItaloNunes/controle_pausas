@@ -3,9 +3,8 @@ import pandas as pd
 from datetime import datetime
 import io
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 import json
-import os
 
 # =============== CONFIGURAÇÃO ===================
 st.set_page_config(page_title="Controle de Pausas", layout="wide")
@@ -13,7 +12,7 @@ st.set_page_config(page_title="Controle de Pausas", layout="wide")
 # Autenticando com Google Sheets via secrets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 credentials_dict = json.loads(st.secrets["GOOGLE_SERVICE_ACCOUNT"])
-credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
+credentials = Credentials.from_service_account_info(credentials_dict, scopes=scope)
 client = gspread.authorize(credentials)
 
 SHEET_NAME = "controle_pausas"
