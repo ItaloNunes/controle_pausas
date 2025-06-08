@@ -1,19 +1,24 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
-import io
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 import json
+import io
+from datetime import datetime
+from oauth2client.service_account import ServiceAccountCredentials
 
 # =============== CONFIGURAÇÃO ===================
 st.set_page_config(page_title="Controle de Pausas", layout="wide")
 
-# Autenticando com Google Sheets via secrets
+# =============== AUTENTICAÇÃO COM GOOGLE SHEETS ===================
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-credentials_dict = json.loads(st.secrets["GOOGLE_SERVICE_ACCOUNT"])
-credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
-client = gspread.authorize(credentials)
+
+try:
+    credentials_dict = json.loads(st.secrets["GOOGLE_SERVICE_ACCOUNT"])
+    credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, scope)
+    client = gspread.authorize(credentials)
+except Exception as e:
+    st.error("Erro ao carregar credenciais do Google Sheets.")
+    st.stop()
 
 SHEET_NAME = "controle_pausas"
 ABA_FUNCIONARIOS = "funcionarios"
@@ -24,10 +29,10 @@ try:
     sheet = client.open(SHEET_NAME)
     st.info("✅ Planilha encontrada com sucesso.")
 except gspread.SpreadsheetNotFound:
-    st.warning("📄 Planilha não encontrada. Criando nova planilha...")
+    st.warning("📄 Planilha não encontrada. Criando nova...")
     sheet = client.create(SHEET_NAME)
     sheet.share(credentials_dict["client_email"], perm_type="user", role="writer")
-    sheet.share("italooonunes@gmail.com", perm_type="user", role="writer")  # <-- SUBSTITUA AQUI
+    sheet.share("italooonunes@gmail.com", perm_type="user", role="writer")
     sheet.add_worksheet(title=ABA_FUNCIONARIOS, rows="1000", cols="20")
     sheet.add_worksheet(title=ABA_PAUSAS, rows="1000", cols="20")
     sheet.del_worksheet(sheet.worksheet("Sheet1"))
@@ -83,7 +88,7 @@ if st.session_state.usuario_logado is None:
         if user in usuarios and usuarios[user]["senha"] == password:
             st.session_state.usuario_logado = user
             st.success(f"Bem-vindo, {user}!")
-            st.rerun()
+            st.experimental_rerun()
         else:
             st.error("Usuário ou senha inválido.")
     st.stop()
@@ -91,23 +96,20 @@ if st.session_state.usuario_logado is None:
 tipo_usuario = usuarios[st.session_state.usuario_logado]["tipo"]
 
 # =============== LOGO ===================
-st.markdown(
-    """
+st.markdown("""
     <div style='text-align: center; margin-top: -25px; margin-bottom: 10px;'>
         <img src='https://raw.githubusercontent.com/ItaloNunes/controle_pausas/main/controle_pausas/logo%20ABJ.jpg' width='160'/>
     </div>
-    """,
-    unsafe_allow_html=True
-)
+""", unsafe_allow_html=True)
 
 st.title("🕒 Controle de Pausas")
 
-# =============== CARREGAMENTO INICIAL ===================
+# =============== CARREGAMENTO ===================
 funcionarios_df = carregar_funcionarios()
 if "df" not in st.session_state:
     st.session_state.df = carregar_pausas()
 
-# =============== CRUD FUNCIONÁRIOS (ADMIN) ===================
+# =============== CRUD FUNCIONÁRIOS ===================
 if tipo_usuario == "admin":
     st.sidebar.title("📋 Cadastro de Funcionários")
     st.sidebar.markdown("### 👀 Funcionários cadastrados")
@@ -138,7 +140,6 @@ if tipo_usuario == "admin":
                 st.sidebar.success(f"Funcionário '{editar_nome}' excluído!")
 
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### ➕ Cadastrar novo funcionário")
     with st.sidebar.form("novo_funcionario"):
         novo_nome = st.text_input("Nome")
         novo_matricula = st.text_input("Matrícula")
@@ -195,11 +196,10 @@ else:
             else:
                 st.warning("Você precisa iniciar a pausa primeiro.")
 
-# =============== RELATÓRIO E FILTRO ===================
+# =============== RELATÓRIO ===================
 st.subheader("🔎 Filtrar pausas")
 data_filtro = st.date_input("Data:", datetime.now().date())
-nomes_filtro = ["Todos"] + funcionarios_df["nome"].tolist()
-usuario_filtro = st.selectbox("Funcionário para filtrar:", nomes_filtro)
+usuario_filtro = st.selectbox("Funcionário para filtrar:", ["Todos"] + funcionarios_df["nome"].tolist())
 
 df_filtro = st.session_state.df.copy()
 df_filtro["data"] = pd.to_datetime(df_filtro["inicio"]).dt.date
