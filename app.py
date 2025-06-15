@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 import io
 import os
-import openpyxl  # força carregamento explícito
+
 
 # ===================== ARQUIVOS =====================
 df_path = "pausas.csv"
