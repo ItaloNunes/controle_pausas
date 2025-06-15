@@ -22,6 +22,9 @@ def ler_aba(planilha, nome_aba):
 
 # Escreve DataFrame na aba (sobrescreve)
 def escrever_aba(planilha, nome_aba, df):
-    aba = planilha.worksheet(nome_aba)
+    try:
+        aba = planilha.worksheet(nome_aba)
+    except gspread.exceptions.WorksheetNotFound:
+        aba = planilha.add_worksheet(title=nome_aba, rows="1000", cols="20")
     aba.clear()
     aba.update([df.columns.values.tolist()] + df.values.tolist())
