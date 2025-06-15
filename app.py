@@ -120,7 +120,11 @@ with col2:
         nome = st.session_state.get("pausa_nome")
         if inicio and nome:
             fim = datetime.now()
-            duracao = round((fim - inicio).total_seconds() / 60, 2)
+            total_segundos = int((fim - inicio).total_seconds())
+            minutos = total_segundos // 60
+            segundos = total_segundos % 60
+            duracao = f"{minutos:02d}:{segundos:02d}"
+
             try:
                 pausas_df = ler_aba(planilha, "pausas")
             except:
@@ -135,7 +139,7 @@ with col2:
             pausas_df = pd.concat([pausas_df, nova], ignore_index=True)
             escrever_aba(planilha, "pausas", pausas_df)
             st.session_state["pausa_inicio"] = None
-            st.success(f"Pausa finalizada: {duracao} minutos")
+            st.success(f"Pausa finalizada: {duracao}")
         else:
             st.warning("Você precisa iniciar a pausa primeiro.")
 
@@ -162,7 +166,6 @@ if not pausas_df.empty:
 
     st.dataframe(df_filtro)
 
-    # Exportação
     try:
         excel_buffer = io.BytesIO()
         df_filtro.to_excel(excel_buffer, index=False, engine="openpyxl")
@@ -177,9 +180,5 @@ if not pausas_df.empty:
         st.error(f"Erro ao gerar Excel: {e}")
 
     st.subheader("📊 Resumo por funcionário")
-    resumo = pausas_df.groupby("funcionario")["duracao"].agg(
-        total_pausas="count",
-        total_minutos="sum",
-        media_minutos="mean"
-    ).round(2).reset_index()
-    st.dataframe(resumo)
+    st.info("⚠️ O campo 'duracao' está como texto (mm:ss). Para somas/médias automáticas, converta para segundos.")
+    st.dataframe(pausas_df[["funcionario", "duracao"]])
