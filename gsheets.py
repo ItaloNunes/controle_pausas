@@ -10,10 +10,9 @@ def conectar_planilha(nome_planilha):
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive"
     ]
-    creds_dict = json.loads(st.secrets["gcp_service_account"])
+    creds_dict = st.secrets["gcp_service_account"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
-    return client.open(nome_planilha)
 
 # Lê aba da planilha e retorna como DataFrame
 def ler_aba(planilha, nome_aba):
