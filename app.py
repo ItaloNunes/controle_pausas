@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import io
 import os
+import openpyxl  # força carregamento explícito
 
 # ===================== ARQUIVOS =====================
 df_path = "pausas.csv"
@@ -18,11 +19,9 @@ else:
 # ===================== CRUD DE FUNCIONÁRIOS =====================
 st.sidebar.title("📋 Cadastro de Funcionários")
 
-# Mostrar tabela atual
 st.sidebar.markdown("### 👀 Funcionários cadastrados")
 st.sidebar.dataframe(funcionarios_df)
 
-# Seleção para edição
 nomes = funcionarios_df["nome"].tolist()
 editar_nome = st.sidebar.selectbox("Editar/Excluir funcionário:", [""] + nomes)
 
@@ -48,7 +47,6 @@ if editar_nome:
             funcionarios_df.to_csv(funcionarios_path, index=False)
             st.sidebar.success(f"Funcionário '{editar_nome}' excluído com sucesso!")
 
-# Cadastro novo
 st.sidebar.markdown("---")
 st.sidebar.markdown("### ➕ Cadastrar novo funcionário")
 
@@ -78,7 +76,6 @@ with st.sidebar.form("novo_funcionario"):
 # ===================== CONTROLE DE PAUSAS =====================
 st.title("🕒 Controle de Pausas")
 
-# Garantir pausas.csv
 if "df" not in st.session_state:
     try:
         df = pd.read_csv(df_path, parse_dates=["inicio", "fim"])
@@ -86,7 +83,6 @@ if "df" not in st.session_state:
         df = pd.DataFrame(columns=["funcionario", "inicio", "fim", "duracao"])
     st.session_state.df = df
 
-# Selecionar funcionário
 if len(funcionarios_df) == 0:
     st.warning("⚠️ Nenhum funcionário cadastrado. Cadastre primeiro no menu lateral.")
 else:
@@ -119,9 +115,7 @@ else:
             else:
                 st.warning("Você precisa iniciar a pausa primeiro.")
 
-    # ===================== FILTROS E RELATÓRIOS =====================
     st.subheader("🔎 Filtrar pausas")
-
     data_filtro = st.date_input("Data:", datetime.now().date())
     nomes_filtro = ["Todos"] + funcionarios_df["nome"].tolist()
     usuario_filtro = st.selectbox("Funcionário para filtrar:", nomes_filtro)
@@ -134,19 +128,22 @@ else:
 
     st.dataframe(df_filtro)
 
-    # Exportar Excel
-    excel_buffer = io.BytesIO()
-    df_filtro.to_excel(excel_buffer, index=False, engine="openpyxl")
-    excel_buffer.seek(0)
+    # EXPORTAÇÃO PARA EXCEL COM TRATAMENTO DE ERRO
+    try:
+        excel_buffer = io.BytesIO()
+        df_filtro.to_excel(excel_buffer, index=False, engine="openpyxl")
+        excel_buffer.seek(0)
 
-    st.download_button(
-        label="📥 Baixar Excel",
-        data=excel_buffer,
-        file_name="pausas.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        st.download_button(
+            label="📥 Baixar Excel",
+            data=excel_buffer,
+            file_name="pausas.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    except Exception as e:
+        st.error(f"Erro ao gerar o Excel: {e}")
+        st.info("Verifique se o pacote openpyxl está instalado corretamente.")
 
-    # Resumo por funcionário
     st.subheader("📊 Resumo por funcionário")
     resumo = st.session_state.df.groupby("funcionario")["duracao"].agg(
         total_pausas="count",
