@@ -179,6 +179,21 @@ if not pausas_df.empty:
     except Exception as e:
         st.error(f"Erro ao gerar Excel: {e}")
 
+    # ========== RESUMO CONVERTENDO DURACAO ==========
+    def mmss_para_segundos(valor):
+        try:
+            m, s = map(int, str(valor).split(":"))
+            return m * 60 + s
+        except:
+            return 0
+
+    pausas_df["duracao_segundos"] = pausas_df["duracao"].apply(mmss_para_segundos)
+
+    resumo = pausas_df.groupby("funcionario")["duracao_segundos"].agg(
+        total_pausas="count",
+        total_minutos=lambda x: round(x.sum() / 60, 2),
+        media_minutos=lambda x: round(x.mean() / 60, 2)
+    ).reset_index()
+
     st.subheader("📊 Resumo por funcionário")
-    st.info("⚠️ O campo 'duracao' está como texto (mm:ss). Para somas/médias automáticas, converta para segundos.")
-    st.dataframe(pausas_df[["funcionario", "duracao"]])
+    st.dataframe(resumo)
