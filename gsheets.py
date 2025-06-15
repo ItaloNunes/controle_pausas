@@ -22,14 +22,15 @@ def ler_aba(planilha, nome_aba):
 
 # Escreve DataFrame na aba (sobrescreve)
 def escrever_aba(planilha, nome_aba, df):
+    import gspread
     try:
         aba = planilha.worksheet(nome_aba)
-    except Exception:
-        try:
-            aba = planilha.add_worksheet(title=nome_aba, rows="1000", cols="20")
-        except:
-            st.error(f"❌ Não foi possível acessar ou criar a aba '{nome_aba}'. Verifique o nome no Google Sheets.")
-            st.stop()
+    except gspread.exceptions.WorksheetNotFound:
+        aba = planilha.add_worksheet(title=nome_aba, rows="1000", cols="20")
+    except Exception as e:
+        st.error(f"Erro ao acessar ou criar a aba '{nome_aba}': {e}")
+        st.stop()
 
     aba.clear()
     aba.update([df.columns.values.tolist()] + df.values.tolist())
+
