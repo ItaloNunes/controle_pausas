@@ -24,7 +24,12 @@ def ler_aba(planilha, nome_aba):
 def escrever_aba(planilha, nome_aba, df):
     try:
         aba = planilha.worksheet(nome_aba)
-    except gspread.exceptions.WorksheetNotFound:
-        aba = planilha.add_worksheet(title=nome_aba, rows="1000", cols="20")
+    except Exception:
+        try:
+            aba = planilha.add_worksheet(title=nome_aba, rows="1000", cols="20")
+        except:
+            st.error(f"❌ Não foi possível acessar ou criar a aba '{nome_aba}'. Verifique o nome no Google Sheets.")
+            st.stop()
+
     aba.clear()
     aba.update([df.columns.values.tolist()] + df.values.tolist())
