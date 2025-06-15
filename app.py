@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import io
-import os
+from gsheets import conectar_planilha, ler_aba, escrever_aba
 
 # ========== LOGIN E PERFIS ==========
 USUARIOS = {
@@ -28,20 +28,19 @@ if not st.session_state.usuario:
             st.error("❌ Usuário ou senha incorretos.")
     st.stop()
 
-# ========== ARQUIVOS ==========
-df_path = "pausas.csv"
-funcionarios_path = "funcionarios.csv"
+# ========== CONECTAR À PLANILHA ==========
+planilha = conectar_planilha("controle_pausas")
 
-if not os.path.exists(funcionarios_path):
+# ========== FUNCIONÁRIOS ==========
+try:
+    funcionarios_df = ler_aba(planilha, "funcionarios")
+except:
     funcionarios_df = pd.DataFrame(columns=["nome", "matricula", "cargo", "setor"])
-    funcionarios_df.to_csv(funcionarios_path, index=False)
-else:
-    funcionarios_df = pd.read_csv(funcionarios_path)
+    escrever_aba(planilha, "funcionarios", funcionarios_df)
 
-# ========== CRUD DE FUNCIONÁRIOS (Somente para admin) ==========
+# ========== CRUD FUNCIONÁRIOS (APENAS ADMIN) ==========
 if st.session_state.perfil == "admin":
     st.sidebar.title("📋 Cadastro de Funcionários")
-
     st.sidebar.markdown("### 👀 Funcionários cadastrados")
     st.sidebar.dataframe(funcionarios_df)
 
@@ -59,15 +58,15 @@ if st.session_state.perfil == "admin":
             deletar = st.form_submit_button("🗑️ Excluir")
 
             if atualizar:
-                index = funcionarios_df[funcionarios_df["nome"] == editar_nome].index[0]
-                funcionarios_df.loc[index] = [nome_novo, matricula_novo, cargo_novo, setor_novo]
-                funcionarios_df.to_csv(funcionarios_path, index=False)
-                st.sidebar.success(f"Funcionário '{editar_nome}' atualizado com sucesso!")
+                idx = funcionarios_df[funcionarios_df["nome"] == editar_nome].index[0]
+                funcionarios_df.loc[idx] = [nome_novo, matricula_novo, cargo_novo, setor_novo]
+                escrever_aba(planilha, "funcionarios", funcionarios_df)
+                st.sidebar.success("Funcionário atualizado com sucesso.")
 
             if deletar:
                 funcionarios_df = funcionarios_df[funcionarios_df["nome"] != editar_nome]
-                funcionarios_df.to_csv(funcionarios_path, index=False)
-                st.sidebar.success(f"Funcionário '{editar_nome}' excluído com sucesso!")
+                escrever_aba(planilha, "funcionarios", funcionarios_df)
+                st.sidebar.success("Funcionário excluído com sucesso.")
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("### ➕ Cadastrar novo funcionário")
@@ -88,74 +87,86 @@ if st.session_state.perfil == "admin":
                     "setor": novo_setor
                 }])
                 funcionarios_df = pd.concat([funcionarios_df, novo_func], ignore_index=True)
-                funcionarios_df.to_csv(funcionarios_path, index=False)
+                escrever_aba(planilha, "funcionarios", funcionarios_df)
                 st.sidebar.success(f"Funcionário '{novo_nome}' cadastrado com sucesso!")
             elif novo_nome in funcionarios_df["nome"].values:
                 st.sidebar.warning("Funcionário já está cadastrado.")
             else:
                 st.sidebar.warning("O campo nome é obrigatório.")
 
-# ========== CONTROLE DE PAUSAS ==========
+# ========== REGISTRO DE PAUSAS ==========
 st.title("🕒 Controle de Pausas")
 
-if "df" not in st.session_state:
-    try:
-        df = pd.read_csv(df_path, parse_dates=["inicio", "fim"])
-    except FileNotFoundError:
-        df = pd.DataFrame(columns=["funcionario", "inicio", "fim", "duracao"])
-    st.session_state.df = df
+if funcionarios_df.empty:
+    st.warning("⚠️ Nenhum funcionário cadastrado.")
+    st.stop()
 
-if len(funcionarios_df) == 0:
-    st.warning("⚠️ Nenhum funcionário cadastrado. Cadastre primeiro no menu lateral.")
-else:
-    nome = st.selectbox("Selecione o funcionário:", funcionarios_df["nome"].tolist())
+nome = st.selectbox("Selecione o funcionário:", funcionarios_df["nome"].tolist())
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("▶️ Iniciar pausa"):
-            st.session_state["pausa_inicio"] = datetime.now()
-            st.session_state["pausa_nome"] = nome
-            st.success(f"Pausa iniciada para {nome}")
+if "pausa_inicio" not in st.session_state:
+    st.session_state["pausa_inicio"] = None
+    st.session_state["pausa_nome"] = None
 
-    with col2:
-        if st.button("⏹ Finalizar pausa"):
-            inicio = st.session_state.get("pausa_inicio")
-            nome = st.session_state.get("pausa_nome")
-            if inicio and nome:
-                fim = datetime.now()
-                duracao = round((fim - inicio).total_seconds() / 60, 2)
-                nova = pd.DataFrame([{
-                    "funcionario": nome,
-                    "inicio": inicio,
-                    "fim": fim,
-                    "duracao": duracao
-                }])
-                st.session_state.df = pd.concat([st.session_state.df, nova], ignore_index=True)
-                st.session_state["pausa_inicio"] = None
-                st.success(f"Pausa finalizada: {duracao} minutos")
-                st.session_state.df.to_csv(df_path, index=False)
-            else:
-                st.warning("Você precisa iniciar a pausa primeiro.")
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("▶️ Iniciar pausa"):
+        st.session_state["pausa_inicio"] = datetime.now()
+        st.session_state["pausa_nome"] = nome
+        st.success(f"Pausa iniciada para {nome}")
 
-    st.subheader("🔎 Filtrar pausas")
+with col2:
+    if st.button("⏹ Finalizar pausa"):
+        inicio = st.session_state.get("pausa_inicio")
+        nome = st.session_state.get("pausa_nome")
+        if inicio and nome:
+            fim = datetime.now()
+            duracao = round((fim - inicio).total_seconds() / 60, 2)
+            try:
+                pausas_df = ler_aba(planilha, "pausas")
+            except:
+                pausas_df = pd.DataFrame(columns=["funcionario", "inicio", "fim", "duracao"])
+
+            nova = pd.DataFrame([{
+                "funcionario": nome,
+                "inicio": inicio.strftime("%Y-%m-%d %H:%M:%S"),
+                "fim": fim.strftime("%Y-%m-%d %H:%M:%S"),
+                "duracao": duracao
+            }])
+            pausas_df = pd.concat([pausas_df, nova], ignore_index=True)
+            escrever_aba(planilha, "pausas", pausas_df)
+            st.session_state["pausa_inicio"] = None
+            st.success(f"Pausa finalizada: {duracao} minutos")
+        else:
+            st.warning("Você precisa iniciar a pausa primeiro.")
+
+# ========== RELATÓRIOS ==========
+st.subheader("🔎 Filtrar pausas")
+try:
+    pausas_df = ler_aba(planilha, "pausas")
+except:
+    pausas_df = pd.DataFrame(columns=["funcionario", "inicio", "fim", "duracao"])
+
+if not pausas_df.empty:
+    pausas_df["inicio"] = pd.to_datetime(pausas_df["inicio"])
+    pausas_df["fim"] = pd.to_datetime(pausas_df["fim"])
+
     data_filtro = st.date_input("Data:", datetime.now().date())
     nomes_filtro = ["Todos"] + funcionarios_df["nome"].tolist()
     usuario_filtro = st.selectbox("Funcionário para filtrar:", nomes_filtro)
 
-    df_filtro = st.session_state.df.copy()
-    df_filtro["data"] = pd.to_datetime(df_filtro["inicio"]).dt.date
+    df_filtro = pausas_df.copy()
+    df_filtro["data"] = df_filtro["inicio"].dt.date
     df_filtro = df_filtro[df_filtro["data"] == data_filtro]
     if usuario_filtro != "Todos":
         df_filtro = df_filtro[df_filtro["funcionario"] == usuario_filtro]
 
     st.dataframe(df_filtro)
 
-    # Exportação para Excel
+    # Exportação
     try:
         excel_buffer = io.BytesIO()
         df_filtro.to_excel(excel_buffer, index=False, engine="openpyxl")
         excel_buffer.seek(0)
-
         st.download_button(
             label="📥 Baixar Excel",
             data=excel_buffer,
@@ -163,11 +174,10 @@ else:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     except Exception as e:
-        st.error(f"Erro ao gerar o Excel: {e}")
-        st.info("Verifique se o pacote openpyxl está instalado corretamente.")
+        st.error(f"Erro ao gerar Excel: {e}")
 
     st.subheader("📊 Resumo por funcionário")
-    resumo = st.session_state.df.groupby("funcionario")["duracao"].agg(
+    resumo = pausas_df.groupby("funcionario")["duracao"].agg(
         total_pausas="count",
         total_minutos="sum",
         media_minutos="mean"
