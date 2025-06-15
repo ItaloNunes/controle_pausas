@@ -4,76 +4,98 @@ from datetime import datetime
 import io
 import os
 
+# ========== LOGIN E PERFIS ==========
+USUARIOS = {
+    "admin": {"senha": "admin123", "perfil": "admin"},
+    "operador": {"senha": "1234", "perfil": "operador"}
+}
 
-# ===================== ARQUIVOS =====================
+if "usuario" not in st.session_state:
+    st.session_state.usuario = None
+    st.session_state.perfil = None
+
+if not st.session_state.usuario:
+    st.title("🔐 Login do Sistema")
+    usuario = st.selectbox("Usuário", list(USUARIOS.keys()))
+    senha = st.text_input("Senha", type="password")
+    if st.button("Entrar"):
+        if USUARIOS.get(usuario) and USUARIOS[usuario]["senha"] == senha:
+            st.session_state.usuario = usuario
+            st.session_state.perfil = USUARIOS[usuario]["perfil"]
+            st.success(f"✅ Logado como {usuario}")
+            st.rerun()
+        else:
+            st.error("❌ Usuário ou senha incorretos.")
+    st.stop()
+
+# ========== ARQUIVOS ==========
 df_path = "pausas.csv"
 funcionarios_path = "funcionarios.csv"
 
-# ===================== CARREGAR FUNCIONÁRIOS =====================
 if not os.path.exists(funcionarios_path):
     funcionarios_df = pd.DataFrame(columns=["nome", "matricula", "cargo", "setor"])
     funcionarios_df.to_csv(funcionarios_path, index=False)
 else:
     funcionarios_df = pd.read_csv(funcionarios_path)
 
-# ===================== CRUD DE FUNCIONÁRIOS =====================
-st.sidebar.title("📋 Cadastro de Funcionários")
+# ========== CRUD DE FUNCIONÁRIOS (Somente para admin) ==========
+if st.session_state.perfil == "admin":
+    st.sidebar.title("📋 Cadastro de Funcionários")
 
-st.sidebar.markdown("### 👀 Funcionários cadastrados")
-st.sidebar.dataframe(funcionarios_df)
+    st.sidebar.markdown("### 👀 Funcionários cadastrados")
+    st.sidebar.dataframe(funcionarios_df)
 
-nomes = funcionarios_df["nome"].tolist()
-editar_nome = st.sidebar.selectbox("Editar/Excluir funcionário:", [""] + nomes)
+    nomes = funcionarios_df["nome"].tolist()
+    editar_nome = st.sidebar.selectbox("Editar/Excluir funcionário:", [""] + nomes)
 
-if editar_nome:
-    funcionario = funcionarios_df[funcionarios_df["nome"] == editar_nome].iloc[0]
+    if editar_nome:
+        funcionario = funcionarios_df[funcionarios_df["nome"] == editar_nome].iloc[0]
+        with st.sidebar.form("editar_form"):
+            nome_novo = st.text_input("Nome", funcionario["nome"], key="nome_edit")
+            matricula_novo = st.text_input("Matrícula", funcionario["matricula"], key="matricula_edit")
+            cargo_novo = st.text_input("Cargo", funcionario["cargo"], key="cargo_edit")
+            setor_novo = st.text_input("Setor", funcionario["setor"], key="setor_edit")
+            atualizar = st.form_submit_button("💾 Atualizar")
+            deletar = st.form_submit_button("🗑️ Excluir")
 
-    with st.sidebar.form("editar_form"):
-        nome_novo = st.text_input("Nome", funcionario["nome"], key="nome_edit")
-        matricula_novo = st.text_input("Matrícula", funcionario["matricula"], key="matricula_edit")
-        cargo_novo = st.text_input("Cargo", funcionario["cargo"], key="cargo_edit")
-        setor_novo = st.text_input("Setor", funcionario["setor"], key="setor_edit")
-        atualizar = st.form_submit_button("💾 Atualizar")
-        deletar = st.form_submit_button("🗑️ Excluir")
+            if atualizar:
+                index = funcionarios_df[funcionarios_df["nome"] == editar_nome].index[0]
+                funcionarios_df.loc[index] = [nome_novo, matricula_novo, cargo_novo, setor_novo]
+                funcionarios_df.to_csv(funcionarios_path, index=False)
+                st.sidebar.success(f"Funcionário '{editar_nome}' atualizado com sucesso!")
 
-        if atualizar:
-            index = funcionarios_df[funcionarios_df["nome"] == editar_nome].index[0]
-            funcionarios_df.loc[index] = [nome_novo, matricula_novo, cargo_novo, setor_novo]
-            funcionarios_df.to_csv(funcionarios_path, index=False)
-            st.sidebar.success(f"Funcionário '{editar_nome}' atualizado com sucesso!")
+            if deletar:
+                funcionarios_df = funcionarios_df[funcionarios_df["nome"] != editar_nome]
+                funcionarios_df.to_csv(funcionarios_path, index=False)
+                st.sidebar.success(f"Funcionário '{editar_nome}' excluído com sucesso!")
 
-        if deletar:
-            funcionarios_df = funcionarios_df[funcionarios_df["nome"] != editar_nome]
-            funcionarios_df.to_csv(funcionarios_path, index=False)
-            st.sidebar.success(f"Funcionário '{editar_nome}' excluído com sucesso!")
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### ➕ Cadastrar novo funcionário")
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("### ➕ Cadastrar novo funcionário")
+    with st.sidebar.form("novo_funcionario"):
+        novo_nome = st.text_input("Nome", key="nome_novo")
+        novo_matricula = st.text_input("Matrícula", key="matricula_novo")
+        novo_cargo = st.text_input("Cargo", key="cargo_novo")
+        novo_setor = st.text_input("Setor", key="setor_novo")
+        cadastrar = st.form_submit_button("✅ Cadastrar")
 
-with st.sidebar.form("novo_funcionario"):
-    novo_nome = st.text_input("Nome", key="nome_novo")
-    novo_matricula = st.text_input("Matrícula", key="matricula_novo")
-    novo_cargo = st.text_input("Cargo", key="cargo_novo")
-    novo_setor = st.text_input("Setor", key="setor_novo")
-    cadastrar = st.form_submit_button("✅ Cadastrar")
+        if cadastrar:
+            if novo_nome and novo_nome not in funcionarios_df["nome"].values:
+                novo_func = pd.DataFrame([{
+                    "nome": novo_nome,
+                    "matricula": novo_matricula,
+                    "cargo": novo_cargo,
+                    "setor": novo_setor
+                }])
+                funcionarios_df = pd.concat([funcionarios_df, novo_func], ignore_index=True)
+                funcionarios_df.to_csv(funcionarios_path, index=False)
+                st.sidebar.success(f"Funcionário '{novo_nome}' cadastrado com sucesso!")
+            elif novo_nome in funcionarios_df["nome"].values:
+                st.sidebar.warning("Funcionário já está cadastrado.")
+            else:
+                st.sidebar.warning("O campo nome é obrigatório.")
 
-    if cadastrar:
-        if novo_nome and novo_nome not in funcionarios_df["nome"].values:
-            novo_func = pd.DataFrame([{
-                "nome": novo_nome,
-                "matricula": novo_matricula,
-                "cargo": novo_cargo,
-                "setor": novo_setor
-            }])
-            funcionarios_df = pd.concat([funcionarios_df, novo_func], ignore_index=True)
-            funcionarios_df.to_csv(funcionarios_path, index=False)
-            st.sidebar.success(f"Funcionário '{novo_nome}' cadastrado com sucesso!")
-        elif novo_nome in funcionarios_df["nome"].values:
-            st.sidebar.warning("Funcionário já está cadastrado.")
-        else:
-            st.sidebar.warning("O campo nome é obrigatório.")
-
-# ===================== CONTROLE DE PAUSAS =====================
+# ========== CONTROLE DE PAUSAS ==========
 st.title("🕒 Controle de Pausas")
 
 if "df" not in st.session_state:
@@ -128,7 +150,7 @@ else:
 
     st.dataframe(df_filtro)
 
-    # EXPORTAÇÃO PARA EXCEL COM TRATAMENTO DE ERRO
+    # Exportação para Excel
     try:
         excel_buffer = io.BytesIO()
         df_filtro.to_excel(excel_buffer, index=False, engine="openpyxl")
