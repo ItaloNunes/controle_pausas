@@ -1,6 +1,8 @@
+import streamlit as st
 import gspread
 import json
 from oauth2client.service_account import ServiceAccountCredentials
+import pandas as pd
 
 # Conecta à planilha do Google
 def conectar_planilha(nome_planilha):
