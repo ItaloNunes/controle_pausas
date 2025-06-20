@@ -4,7 +4,7 @@ from datetime import datetime
 import io
 from gsheets import conectar_planilha, ler_aba, escrever_aba
 
-# ========== LOGIN ==========
+# ========== LOGIN E PERFIS ==========
 USUARIOS = {
     "admin": {"senha": "admin123", "perfil": "admin"},
     "operador": {"senha": "1234", "perfil": "operador"}
@@ -28,20 +28,19 @@ if not st.session_state.usuario:
             st.error("❌ Usuário ou senha incorretos.")
     st.stop()
 
-# ========== CONECTAR PLANILHA ==========
+# ========== CONECTAR À PLANILHA ==========
 planilha = conectar_planilha("controle_pausas")
 
 # ========== FUNCIONÁRIOS ==========
 try:
     funcionarios_df = ler_aba(planilha, "funcionarios")
-    colunas_esperadas = {"nome", "matricula", "cargo", "setor"}
-    if set(funcionarios_df.columns) != colunas_esperadas:
+    if set(funcionarios_df.columns) != {"nome", "matricula", "cargo", "setor"}:
         raise ValueError("Colunas incorretas")
 except:
     funcionarios_df = pd.DataFrame(columns=["nome", "matricula", "cargo", "setor"])
     escrever_aba(planilha, "funcionarios", funcionarios_df)
 
-# ========== CRUD FUNCIONÁRIOS (ADMIN) ==========
+# ========== CRUD FUNCIONÁRIOS (APENAS ADMIN) ==========
 if st.session_state.perfil == "admin":
     st.sidebar.title("📋 Cadastro de Funcionários")
     st.sidebar.dataframe(funcionarios_df)
@@ -56,7 +55,7 @@ if st.session_state.perfil == "admin":
             matricula = st.text_input("Matrícula", func["matricula"], key="edit_mat")
             cargo = st.text_input("Cargo", func["cargo"], key="edit_cargo")
             setor = st.text_input("Setor", func["setor"], key="edit_setor")
-            atualizar = st.form_submit_button("💾 Atualizar")
+            atualizar = st.form_submit_button("📏 Atualizar")
             deletar = st.form_submit_button("🗑️ Excluir")
 
             if atualizar:
@@ -94,26 +93,26 @@ if funcionarios_df.empty:
     st.warning("Nenhum funcionário cadastrado.")
     st.stop()
 
-# Inicializar estado de pausas múltiplas
+# Inicializa pausas simultâneas
 if "pausas_ativas" not in st.session_state:
-    st.session_state.pausas_ativas = {}
+    st.session_state["pausas_ativas"] = {}
 
 nome = st.selectbox("Funcionário:", funcionarios_df["nome"].tolist())
 
 col1, col2 = st.columns(2)
 with col1:
     if st.button("▶️ Iniciar pausa"):
-        st.session_state.pausas_ativas[nome] = datetime.now()
+        st.session_state["pausas_ativas"][nome] = datetime.now()
         st.success(f"Pausa iniciada para {nome}")
 
 with col2:
     if st.button("⏹ Finalizar pausa"):
-        if nome in st.session_state.pausas_ativas:
-            inicio = st.session_state.pausas_ativas.pop(nome)
+        if nome in st.session_state["pausas_ativas"]:
+            inicio = st.session_state["pausas_ativas"].pop(nome)
             fim = datetime.now()
-            duracao_segundos = int((fim - inicio).total_seconds())
-            minutos = duracao_segundos // 60
-            segundos = duracao_segundos % 60
+            total_segundos = int((fim - inicio).total_seconds())
+            minutos = total_segundos // 60
+            segundos = total_segundos % 60
             duracao = f"{minutos:02d}:{segundos:02d}"
 
             try:
@@ -129,11 +128,11 @@ with col2:
             }])
             pausas_df = pd.concat([pausas_df, nova], ignore_index=True)
             escrever_aba(planilha, "pausas", pausas_df)
-            st.success(f"Pausa finalizada para {nome}: {duracao}")
+            st.success(f"Pausa finalizada: {duracao}")
         else:
-            st.warning("Nenhuma pausa ativa para este funcionário.")
+            st.warning("Nenhuma pausa ativa para esse funcionário.")
 
-# ========== RELATÓRIOS ==========
+# ========== RELATÓRIO ==========
 st.subheader("🔍 Filtrar Pausas")
 try:
     pausas_df = ler_aba(planilha, "pausas")
@@ -143,6 +142,7 @@ except:
 if not pausas_df.empty:
     pausas_df["inicio"] = pd.to_datetime(pausas_df["inicio"])
     pausas_df["fim"] = pd.to_datetime(pausas_df["fim"])
+
     data_filtro = st.date_input("Data:", datetime.now().date())
     nomes_filtro = ["Todos"] + funcionarios_df["nome"].tolist()
     filtro_nome = st.selectbox("Funcionário:", nomes_filtro)
@@ -155,13 +155,11 @@ if not pausas_df.empty:
 
     st.dataframe(df_filtro)
 
-    # Exportar
     buffer = io.BytesIO()
     df_filtro.to_excel(buffer, index=False, engine="openpyxl")
     buffer.seek(0)
     st.download_button("📥 Baixar Excel", buffer, "pausas.xlsx")
 
-    # Converter duração
     def mmss_para_segundos(txt):
         try:
             m, s = map(int, str(txt).split(":"))
