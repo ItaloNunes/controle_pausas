@@ -54,7 +54,7 @@ if st.session_state.perfil == "admin":
             matricula_novo = st.text_input("Matrícula", funcionario["matricula"], key="matricula_edit")
             cargo_novo = st.text_input("Cargo", funcionario["cargo"], key="cargo_edit")
             setor_novo = st.text_input("Setor", funcionario["setor"], key="setor_edit")
-            atualizar = st.form_submit_button("💾 Atualizar")
+            atualizar = st.form_submit_button("📅 Atualizar")
             deletar = st.form_submit_button("🗑️ Excluir")
 
             if atualizar:
@@ -80,12 +80,7 @@ if st.session_state.perfil == "admin":
 
         if cadastrar:
             if novo_nome and novo_nome not in funcionarios_df["nome"].values:
-                novo_func = pd.DataFrame([{
-                    "nome": novo_nome,
-                    "matricula": novo_matricula,
-                    "cargo": novo_cargo,
-                    "setor": novo_setor
-                }])
+                novo_func = pd.DataFrame([{ "nome": novo_nome, "matricula": novo_matricula, "cargo": novo_cargo, "setor": novo_setor }])
                 funcionarios_df = pd.concat([funcionarios_df, novo_func], ignore_index=True)
                 escrever_aba(planilha, "funcionarios", funcionarios_df)
                 st.sidebar.success(f"Funcionário '{novo_nome}' cadastrado com sucesso!")
@@ -101,24 +96,24 @@ if funcionarios_df.empty:
     st.warning("⚠️ Nenhum funcionário cadastrado.")
     st.stop()
 
-nome = st.selectbox("Selecione o funcionário:", funcionarios_df["nome"].tolist())
+if "pausas_ativas" not in st.session_state:
+    st.session_state["pausas_ativas"] = {}
 
-if "pausa_inicio" not in st.session_state:
-    st.session_state["pausa_inicio"] = None
-    st.session_state["pausa_nome"] = None
+nome = st.selectbox("Selecione o funcionário:", funcionarios_df["nome"].tolist())
 
 col1, col2 = st.columns(2)
 with col1:
     if st.button("▶️ Iniciar pausa"):
-        st.session_state["pausa_inicio"] = datetime.now()
-        st.session_state["pausa_nome"] = nome
-        st.success(f"Pausa iniciada para {nome}")
+        if nome not in st.session_state["pausas_ativas"]:
+            st.session_state["pausas_ativas"][nome] = datetime.now()
+            st.success(f"Pausa iniciada para {nome}")
+        else:
+            st.warning(f"{nome} já está em pausa.")
 
 with col2:
     if st.button("⏹ Finalizar pausa"):
-        inicio = st.session_state.get("pausa_inicio")
-        nome = st.session_state.get("pausa_nome")
-        if inicio and nome:
+        inicio = st.session_state["pausas_ativas"].get(nome)
+        if inicio:
             fim = datetime.now()
             total_segundos = int((fim - inicio).total_seconds())
             minutos = total_segundos // 60
@@ -138,10 +133,10 @@ with col2:
             }])
             pausas_df = pd.concat([pausas_df, nova], ignore_index=True)
             escrever_aba(planilha, "pausas", pausas_df)
-            st.session_state["pausa_inicio"] = None
-            st.success(f"Pausa finalizada: {duracao}")
+            del st.session_state["pausas_ativas"][nome]
+            st.success(f"Pausa finalizada para {nome}: {duracao}")
         else:
-            st.warning("Você precisa iniciar a pausa primeiro.")
+            st.warning(f"{nome} não está em pausa.")
 
 # ========== RELATÓRIOS ==========
 st.subheader("🔎 Filtrar pausas")
@@ -171,7 +166,7 @@ if not pausas_df.empty:
         df_filtro.to_excel(excel_buffer, index=False, engine="openpyxl")
         excel_buffer.seek(0)
         st.download_button(
-            label="📥 Baixar Excel",
+            label="📅 Baixar Excel",
             data=excel_buffer,
             file_name="pausas.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -179,7 +174,6 @@ if not pausas_df.empty:
     except Exception as e:
         st.error(f"Erro ao gerar Excel: {e}")
 
-    # ========== RESUMO CONVERTENDO DURACAO ==========
     def mmss_para_segundos(valor):
         try:
             m, s = map(int, str(valor).split(":"))
