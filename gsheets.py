@@ -25,6 +25,10 @@ def ler_aba(planilha, nome_aba):
         aba = planilha.worksheet(nome_aba)
     except gspread.exceptions.WorksheetNotFound:
         aba = planilha.add_worksheet(title=nome_aba, rows="1000", cols="20")
+        # Preenche com cabeçalhos vazios padrão se necessário
+        aba.update([["vazio"]])
+        return pd.DataFrame()
+    
     dados = aba.get_all_records()
     return pd.DataFrame(dados)
 
@@ -40,6 +44,7 @@ def escrever_aba(planilha, nome_aba, df):
 
     aba.clear()
     if not df.empty:
-        aba.update([df.columns.values.tolist()] + df.values.tolist())
+        # Garante que colunas e valores são atualizados corretamente
+        aba.update([df.columns.values.tolist()] + df.astype(str).values.tolist())
     else:
         aba.update([["vazio"]])
